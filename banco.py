@@ -1,4 +1,11 @@
 from abc import ABC, abstractmethod
+from datetime import datetime 
+
+def log_transacao(func):
+    def wrapper(*args, **kwargs):
+        print(f"[{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}] Executando: {func.__name__}")
+        return func(*args, **kwargs)
+    return wrapper
 
 #============================================Classes=======================================================#
 
@@ -95,6 +102,13 @@ class Historico:
     def adicionar_transacao(self, transacao):
         self.transacoes.append(transacao)
 
+    def gerar_relatorio(self, tipo_transacao = None):
+        for transacao in self.transacoes:
+            tipo = transacao.__class__.__name__
+            if tipo_transacao is None or tipo == tipo_transacao:
+                print(f"{tipo}: R${transacao.valor:.2f}")
+        pass
+
 class TransacaoInterface(ABC): 
 
     @abstractmethod
@@ -105,6 +119,7 @@ class Deposito(TransacaoInterface):
     def __init__ (self, valor):
         self.valor = valor
 
+    @log_transacao
     def registrar(self, conta):
         if conta.depositar(self.valor):  
             conta.historico.adicionar_transacao(self)
@@ -113,9 +128,25 @@ class Saque(TransacaoInterface):
     def __init__ (self, valor):
         self.valor = valor
 
+    @log_transacao
     def registrar(self, conta):
         if conta.sacar(self.valor):  
             conta.historico.adicionar_transacao(self)
+
+class ContaIterador:
+    def __init__(self, contas):
+        self.contas = contas
+        self.indice = 0
+
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        if self.indice >= len(self.contas):
+            raise StopIteration
+        conta = self.contas[self.indice]
+        self.indice += 1
+        return conta
 
 #=========================================Funcionamento====================================================#
 print("""
@@ -145,6 +176,7 @@ def filtrar_usuario(cpf):
             return cliente
     return None
 
+@log_transacao
 def criar_usuario():
     cpf = input("Informe o CPF (somente números): ")
     if filtrar_usuario(cpf):
@@ -160,6 +192,7 @@ def criar_usuario():
     print("Usuário criado com sucesso.")
     return novo_cliente
 
+@log_transacao
 def criar_conta():
     cpf = input("Informe o CPF do usuário: ")
     cliente = filtrar_usuario(cpf)
@@ -178,7 +211,7 @@ def listar_contas():
     if not contas:
         print("Nenhuma conta cadastrada.")
         return
-    for conta in contas:
+    for conta in ContaIterador(contas):
         print(f"Agência: {conta.agencia} | Número: {conta.numero} | Titular: {conta.cliente.nome}")
 
 def encontrar_conta_por_cpf():
@@ -188,6 +221,24 @@ def encontrar_conta_por_cpf():
         return cliente.contas[0]  
     print("Conta não encontrada para esse CPF.")
     return None
+
+def exibir_extrato(conta, tipo_extrato):
+    print("\n====== Extrato ======")
+    if not conta.historico.transacoes:
+            print("Não há movimentações.")
+    else:
+        if tipo_extrato == 1:
+            conta.historico.gerar_relatorio("Deposito")
+        elif tipo_extrato == 2:
+            conta.historico.gerar_relatorio("Saque")
+        elif tipo_extrato == 3:
+            conta.historico.gerar_relatorio()
+        else:
+            print("Filtro não reconhecido. Tente novamente.")
+    print(f"Saldo atual: R${conta.saldo:.2f}")
+    print("=====================")
+
+
 
 def main():
     while True:
@@ -215,16 +266,16 @@ def main():
         
         elif acao == "3":
             conta = encontrar_conta_por_cpf()
-            if conta:
-                print("\n=== Extrato ===")
-                if not conta.historico.transacoes:
-                    print("Não há movimentações.")
-                else:
-                    for t in conta.historico.transacoes:
-                        tipo = t.__class__.__name__
-                        print(f"{tipo}: R${t.valor:.2f}")
-                print(f"Saldo atual: R${conta.saldo:.2f}")
-                print("==============")
+            print("\n   ===|Filtros aplicáveis|===")
+            print("""
+    Digite: 
+        1 - Para visualizar somente seus depósitos;
+        2 - Para visualizar somente seus saques;
+        3 - Para visualizar todas as operações;
+                                     """)
+            tipo_extrato = int(input())
+
+            exibir_extrato(conta, tipo_extrato)
 
         elif acao == "4":
             criar_usuario()
