@@ -15,7 +15,14 @@ class Cliente:
         self.contas = []
 
     def realizar_transacoes (self, conta, transacao):
-        transacao.registrar(conta)
+        #TODO: validar o número de transações e invalidar a operação se for necessário 
+        #print("/n@@@ Você excedeu o número de transações permitidas de hoje!@@@")
+        if conta.historico.transacoes_do_dia() >= 10:
+            print("--------||Você excedeu o número de transações permitidas de hoje!||--------")
+            return False
+        else:
+            transacao.registrar(conta)
+            return True
 
     def adicionar_conta (self, conta):
         self.contas.append(conta)
@@ -100,14 +107,29 @@ class Historico:
         self.transacoes = []
 
     def adicionar_transacao(self, transacao):
-        self.transacoes.append(transacao)
-
+        self.transacoes.append({
+            "transacao": transacao,
+            "data_hora": datetime.now()   
+        })
+ 
     def gerar_relatorio(self, tipo_transacao = None):
-        for transacao in self.transacoes:
+        for registro in self.transacoes:
+            transacao = registro["transacao"]
+            data_hora = registro["data_hora"].strftime("%d/%m/%Y - %H:%M.%S")
             tipo = transacao.__class__.__name__
             if tipo_transacao is None or tipo == tipo_transacao:
-                print(f"{tipo}: R${transacao.valor:.2f}")
+                print(f"{data_hora} - {tipo}: R${transacao.valor:.2f}")
         pass
+    
+    #TODO: filtrar todas as transações realizadas no dia
+    def transacoes_do_dia(self):
+        hoje = datetime.now().date()
+        contador = 0
+        for registro in self.transacoes:
+            if registro["data_hora"].date() == hoje:
+                contador += 1
+        return contador
+        
 
 class TransacaoInterface(ABC): 
 
@@ -118,6 +140,7 @@ class TransacaoInterface(ABC):
 class Deposito(TransacaoInterface):
     def __init__ (self, valor):
         self.valor = valor
+        self.data_hora = datetime.now()
 
     @log_transacao
     def registrar(self, conta):
@@ -127,6 +150,7 @@ class Deposito(TransacaoInterface):
 class Saque(TransacaoInterface):
     def __init__ (self, valor):
         self.valor = valor
+        self.data_hora = datetime.now()
 
     @log_transacao
     def registrar(self, conta):
@@ -223,7 +247,7 @@ def encontrar_conta_por_cpf():
     return None
 
 def exibir_extrato(conta, tipo_extrato):
-    print("\n====== Extrato ======")
+    print("\n===================== Extrato =====================")
     if not conta.historico.transacoes:
             print("Não há movimentações.")
     else:
@@ -236,7 +260,7 @@ def exibir_extrato(conta, tipo_extrato):
         else:
             print("Filtro não reconhecido. Tente novamente.")
     print(f"Saldo atual: R${conta.saldo:.2f}")
-    print("=====================")
+    print("===================================================")
 
 
 
